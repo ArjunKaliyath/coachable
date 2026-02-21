@@ -4,10 +4,16 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-
+import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from database import (
+    build_player_vectors,
+    initialize_vector_db,
+    find_similar_players,
+    recommend_transfer_targets
+)
 
 
 # -----------------------------
@@ -431,6 +437,79 @@ with tab3:
     fig2 = px.histogram(leaderboard, x=metric, nbins=40, title=f"Distribution of {metric}")
     st.plotly_chart(fig2, use_container_width=True)
 
+# Recommend similar players
+df = pd.read_csv("fbref_PL_2024-25.csv")
+
+@st.cache_resource
+def setup_vector_system(df):
+    df_vectors = build_player_vectors(df)
+    initialize_vector_db(df_vectors)
+    return df_vectors
+
+df_vectors = setup_vector_system(df)
+
+df_vectors = build_player_vectors(df)
+initialize_vector_db(df_vectors)
+
+st.header("Role Similarity Engine")
+
+selected_player = st.selectbox(
+    "Select Player",
+    df_vectors["Player"].unique()
+)
+
+exclude_same_team = st.checkbox("Exclude same squad", value=True)
+top_k = st.slider("Number of similar players", 5, 20, 10)
+
+if selected_player:
+    results = find_similar_players(
+        df_vectors,
+        selected_player,
+        top_k,
+        exclude_same_team
+    )
+    st.dataframe(results)
+
+st.header("Transfer Recommender")
+
+selected_player_transfer = st.selectbox(
+    "Select Player to Replace",
+    df_vectors["Player"].unique(),
+    key="transfer"
+)
+
+max_age = st.slider("Maximum Age Target", 18, 35, 28)
+
+preserve_identity = st.checkbox(
+    "Preserve Tactical Identity",
+    value=False
+)
+
+similarity_threshold = None
+
+if preserve_identity:
+    similarity_threshold = st.slider(
+        "Minimum Similarity Threshold",
+        0.5,
+        0.95,
+        0.75,
+        step=0.01
+    )
+
+top_k_transfer = st.slider("Number of Recommendations", 5, 20, 10)
+
+if selected_player_transfer:
+
+    transfer_results = recommend_transfer_targets(
+    df_vectors,
+    selected_player_transfer,
+    max_age,
+    top_k_transfer,
+    similarity_threshold
+    )
+
+    st.subheader("Recommended Transfer Targets")
+    st.dataframe(transfer_results)
 
 # Footer
 st.caption("MVP note: This uses season aggregates (not match-by-match), so it’s a decision-support dashboard, not a tactics simulator.")
