@@ -15,6 +15,8 @@ from database import (
     recommend_transfer_targets
 )
 
+from fatigue_dashboard import render_fatigue_dashboard
+
 
 # -----------------------------
 # Config
@@ -304,7 +306,7 @@ df = add_engineered_features(df)
 # Apply baseline filter
 df_f = safe_filter_minutes(df, min_90s=min_90s)
 
-tab1, tab2, tab3, tab4 = st.tabs(["Role Explorer", "Selection Optimizer", "Talent Finder", "Recommender"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Role Explorer", "Selection Optimizer", "Talent Finder", "Recommender", "Fatigue Monitor"])
 # -----------------------------
 # Tab 1: Role Clustering
 # -----------------------------
@@ -600,3 +602,9 @@ with tab4:
         st.subheader("Recommended Transfer Targets")
         st.dataframe(transfer_results, use_container_width=True, hide_index=True)
   
+
+# -----------------------------
+# Tab 5: Fatigue Monitor
+# -----------------------------
+with tab5:
+    render_fatigue_dashboard()
