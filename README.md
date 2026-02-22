@@ -1,4 +1,4 @@
-# CoachLens MVP
+# CoachLens
 
 Streamlit app for exploring FBref-style season stats:
 - Role clustering with PCA visualization
