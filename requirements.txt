@@ -1,4 +1,4 @@
-actiancortex @ file:///home/abbasidaniyal/work/hacklytics/coachable/actiancortex-0.1.0b1-py3-none-any.whl
+./actiancortex-0.1.0b1-py3-none-any.whl
 altair==6.0.0
 annotated-types==0.7.0
 asttokens==3.0.1

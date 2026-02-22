@@ -21,7 +21,7 @@ from fatigue_dashboard import render_fatigue_dashboard
 # -----------------------------
 # Config
 # -----------------------------
-st.set_page_config(page_title="CoachLens MVP", layout="wide")
+st.set_page_config(page_title="CoachLens", page_icon="logo.jpg", layout="wide")
 
 DATA_PATH = Path("fbref_PL_2024-25.csv")
 TALENT_PALETTE = ["#0B6623", "#1F8A70", "#F2C14E", "#D7263D", "#2E86AB"]
@@ -263,16 +263,20 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown(
-    """
-    <div class="title-row">
-        <span style="font-size: 34px; line-height: 1;">⚽️</span>
-        <h1>CoachLens</h1>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-st.caption("A coach's assistant for player analysis and team optimization.")
+# Display logo
+col1, col2 = st.columns([1, 6])
+with col1:
+    st.image("logo.jpg", width=400)
+with col2:
+    st.markdown(
+        """
+        <div class="title-row">
+            <h1>CoachLens</h1>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.caption("A coach's assistant for player analysis and team optimization.")
 
 # st.caption(f"Using data file: {DATA_PATH.name}")
 min_90s = 6.0
@@ -318,7 +322,7 @@ button[data-baseweb="tab"] p {
 </style>
 """, unsafe_allow_html=True)
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Player Profiler", "Squad Boost", "Talent Scout", "Transfer Guide", "Fatigue Alert"])
+tab2, tab1 , tab3, tab4, tab5 = st.tabs(["Squad Boost", "Player Profiler", "Talent Scout", "Transfer Guide", "Fatigue Alert"])
 # -----------------------------
 # Tab 1: Role Clustering
 # -----------------------------
