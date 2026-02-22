@@ -1,0 +1,11 @@
+services:
+  vectoraidb:
+    image: williamimoh/actian-vectorai-db:1.0b
+    platform: linux/amd64   # For Apple Silicon
+    container_name: vectoraidb
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    stop_grace_period: 2m

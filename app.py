@@ -4,10 +4,16 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-
+import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from database import (
+    build_player_vectors,
+    initialize_vector_db,
+    find_similar_players,
+    recommend_transfer_targets
+)
 
 
 # -----------------------------
@@ -298,8 +304,7 @@ df = add_engineered_features(df)
 # Apply baseline filter
 df_f = safe_filter_minutes(df, min_90s=min_90s)
 
-tab1, tab2, tab3 = st.tabs(["Role Explorer", "Selection Optimizer", "Talent Finder"])
-
+tab1, tab2, tab3, tab4 = st.tabs(["Role Explorer", "Selection Optimizer", "Talent Finder", "Recommender"])
 # -----------------------------
 # Tab 1: Role Clustering
 # -----------------------------
@@ -529,3 +534,69 @@ with tab3:
     )
     fig6.update_traces(marker_color=TALENT_PALETTE[2])
     st.plotly_chart(fig6, use_container_width=True)
+    
+with tab4:
+    st.subheader("Recommender Engine")
+    st.caption("Role similarity + transfer target suggestions based on vector similarity.")
+
+    @st.cache_resource
+    def setup_vector_system(df_in: pd.DataFrame) -> pd.DataFrame:
+        df_vectors_local = build_player_vectors(df_in)
+        initialize_vector_db(df_vectors_local)
+        return df_vectors_local
+
+    # Use the already-prepared dataframe (minutes filtered, engineered features, etc.)
+    df_vectors = setup_vector_system(df_f)
+
+    st.markdown("### Role Similarity Engine")
+    selected_player = st.selectbox(
+        "Select Player",
+        sorted(df_vectors["Player"].dropna().unique().tolist()),
+        key="sim_player"
+    )
+
+    exclude_same_team = st.checkbox("Exclude same squad", value=True, key="sim_exclude_team")
+    top_k = st.slider("Number of similar players", 5, 20, 10, key="sim_topk")
+
+    if selected_player:
+        results = find_similar_players(
+            df_vectors,
+            selected_player,
+            top_k,
+            exclude_same_team
+        )
+        st.dataframe(results, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    st.markdown("### Transfer Recommender")
+    selected_player_transfer = st.selectbox(
+        "Select Player to Replace",
+        sorted(df_vectors["Player"].dropna().unique().tolist()),
+        key="transfer_player"
+    )
+
+    max_age = st.slider("Maximum Age Target", 18, 35, 28, key="transfer_max_age")
+
+    preserve_identity = st.checkbox("Preserve Tactical Identity", value=False, key="transfer_preserve")
+    similarity_threshold = None
+    if preserve_identity:
+        similarity_threshold = st.slider(
+            "Minimum Similarity Threshold",
+            0.5, 0.95, 0.75, step=0.01,
+            key="transfer_thresh"
+        )
+
+    top_k_transfer = st.slider("Number of Recommendations", 5, 20, 10, key="transfer_topk")
+
+    if selected_player_transfer:
+        transfer_results = recommend_transfer_targets(
+            df_vectors,
+            selected_player_transfer,
+            max_age,
+            top_k_transfer,
+            similarity_threshold
+        )
+        st.subheader("Recommended Transfer Targets")
+        st.dataframe(transfer_results, use_container_width=True, hide_index=True)
+  
