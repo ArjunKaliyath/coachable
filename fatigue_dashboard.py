@@ -145,13 +145,13 @@ def style_match_dataframe(df):
         
         for idx, col in enumerate(display_df.columns):
             if col == 'Min':
-                colors[idx] = f'background-color: {get_color_for_minutes(row[col])}'
+                colors[idx] = f'background-color: {get_color_for_minutes(row[col])}; color: black'
             elif col == 'Fld':
-                colors[idx] = f'background-color: {get_color_intensity(row[col], max_fld)}'
+                colors[idx] = f'background-color: {get_color_intensity(row[col], max_fld)}; color: black'
             elif col == 'CrdY':
-                colors[idx] = f'background-color: {get_color_intensity(row[col], max_crdy)}'
+                colors[idx] = f'background-color: {get_color_intensity(row[col], max_crdy)}; color: black'
             elif col == 'Sh':
-                colors[idx] = f'background-color: {get_color_intensity(row[col], max_sh)}'
+                colors[idx] = f'background-color: {get_color_intensity(row[col], max_sh)}; color: black'
         
         return colors
     
@@ -210,11 +210,9 @@ def load_player_recent_matches(player_name):
 def render_fatigue_dashboard():
     """Main function to render the fatigue monitoring dashboard"""
     
-    st.subheader("⚕️ Player Fatigue Monitor")
+    # st.subheader("⚕️ Player Fatigue Monitor")
     st.caption("AI-powered fatigue prediction based on recent match performance and workload")
     
-    # Player selection
-    st.markdown("---")
     selected_player = st.selectbox(
         "Select a player to analyze",
         AVAILABLE_PLAYERS,
@@ -241,7 +239,7 @@ def render_fatigue_dashboard():
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            st.markdown("### 📊 Analysis Summary")
+            st.markdown("### Analysis Summary")
             st.markdown(f"**Analysis Period:** {result['date_range']}")
             st.markdown(f"**Matches Analyzed:** {result['n_matches']}")
             
@@ -271,7 +269,7 @@ def render_fatigue_dashboard():
         st.markdown("---")
         
         # Injury History Section
-        st.markdown("### 🏥 Injury History")
+        st.markdown("### Injury History")
         injury_df = load_injury_history(selected_player)
         
         if not injury_df.empty:
@@ -282,7 +280,7 @@ def render_fatigue_dashboard():
             # Highlight active injuries
             def highlight_active(row):
                 if pd.isna(row['End Date']) or row['End Date'] == '':
-                    return ['background-color: #fee2e2'] * len(row)
+                    return ['background-color: #0f0f0f'] * len(row)
                 return [''] * len(row)
             
             styled_injury = display_injury.style.apply(highlight_active, axis=1)
@@ -307,7 +305,7 @@ def render_fatigue_dashboard():
         st.markdown("---")
         
         # Last 5 Matches Section
-        st.markdown("### 📋 Last 5 Matches Performance")
+        st.markdown("### Last 5 Matches Performance")
         st.caption("Color coding: 🟢 Low | 🟡 Medium | 🔴 High")
         
         matches_df = load_player_recent_matches(selected_player)

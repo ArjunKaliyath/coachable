@@ -274,7 +274,7 @@ st.markdown(
 )
 st.caption("A coach's assistant for player analysis and team optimization.")
 
-st.caption(f"Using data file: {DATA_PATH.name}")
+# st.caption(f"Using data file: {DATA_PATH.name}")
 min_90s = 6.0
 k = 5
 
@@ -306,12 +306,24 @@ df = add_engineered_features(df)
 # Apply baseline filter
 df_f = safe_filter_minutes(df, min_90s=min_90s)
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Role Explorer", "Selection Optimizer", "Talent Finder", "Recommender", "Fatigue Monitor"])
+
+st.markdown("""
+<style>
+/* Target Streamlit tab labels */
+button[data-baseweb="tab"] p {
+    font-size: 20px !important;  /* Adjust size */
+    font-weight: 600;            /* Optional */
+    padding: 8px 16px !important; /* More padding */
+}
+</style>
+""", unsafe_allow_html=True)
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Player Profiler", "Squad Boost", "Talent Scout", "Transfer Guide", "Fatigue Alert"])
 # -----------------------------
 # Tab 1: Role Clustering
 # -----------------------------
 with tab1:
-    st.subheader("Player Role Clustering")
+    # st.subheader("Player Role Clustering")
 
     cluster_features = [
         "Non-penalty xG per 90",
@@ -384,7 +396,7 @@ with tab1:
 # Tab 2: Selection Optimizer
 # -----------------------------
 with tab2:
-    st.subheader("Selection Optimizer (Impact-based squad suggestions)")
+    # st.subheader("Selection Optimizer (Impact-based squad suggestions)")
 
     work = compute_impact(df_f)
     # Focus selection optimizer on attacking/midfield roles
@@ -438,7 +450,7 @@ with tab2:
 # Tab 3: Talent Finder
 # -----------------------------
 with tab3:
-    st.subheader("Talent Finder (league-wide leaders)")
+    # st.subheader("Talent Finder (league-wide leaders)")
 
     # Define metric groups
     metric_groups = {
@@ -538,8 +550,8 @@ with tab3:
     st.plotly_chart(fig6, use_container_width=True)
     
 with tab4:
-    st.subheader("Recommender Engine")
-    st.caption("Role similarity + transfer target suggestions based on vector similarity.")
+    # st.subheader("Recommender Engine")
+    # st.caption("Role similarity + transfer target suggestions based on vector similarity.")
 
     @st.cache_resource
     def setup_vector_system(df_in: pd.DataFrame) -> pd.DataFrame:
@@ -547,31 +559,31 @@ with tab4:
         initialize_vector_db(df_vectors_local)
         return df_vectors_local
 
-    # Use the already-prepared dataframe (minutes filtered, engineered features, etc.)
+    # # Use the already-prepared dataframe (minutes filtered, engineered features, etc.)
     df_vectors = setup_vector_system(df_f)
 
-    st.markdown("### Role Similarity Engine")
-    selected_player = st.selectbox(
-        "Select Player",
-        sorted(df_vectors["Player"].dropna().unique().tolist()),
-        key="sim_player"
-    )
+    # st.markdown("### Role Similarity Engine")
+    # selected_player = st.selectbox(
+    #     "Select Player",
+    #     sorted(df_vectors["Player"].dropna().unique().tolist()),
+    #     key="sim_player"
+    # )
 
-    exclude_same_team = st.checkbox("Exclude same squad", value=True, key="sim_exclude_team")
-    top_k = st.slider("Number of similar players", 5, 20, 10, key="sim_topk")
+    # exclude_same_team = st.checkbox("Exclude same squad", value=True, key="sim_exclude_team")
+    # top_k = st.slider("Number of similar players", 5, 20, 10, key="sim_topk")
 
-    if selected_player:
-        results = find_similar_players(
-            df_vectors,
-            selected_player,
-            top_k,
-            exclude_same_team
-        )
-        st.dataframe(results, use_container_width=True, hide_index=True)
+    # if selected_player:
+    #     results = find_similar_players(
+    #         df_vectors,
+    #         selected_player,
+    #         top_k,
+    #         exclude_same_team
+    #     )
+    #     st.dataframe(results, use_container_width=True, hide_index=True)
 
-    st.divider()
+    # st.divider()
 
-    st.markdown("### Transfer Recommender")
+    # st.markdown("### Transfer Recommender")
     selected_player_transfer = st.selectbox(
         "Select Player to Replace",
         sorted(df_vectors["Player"].dropna().unique().tolist()),
