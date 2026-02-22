@@ -22,6 +22,7 @@ from database import (
 st.set_page_config(page_title="CoachLens MVP", layout="wide")
 
 DATA_PATH = Path("fbref_PL_2024-25.csv")
+TALENT_PALETTE = ["#0B6623", "#1F8A70", "#F2C14E", "#D7263D", "#2E86AB"]
 
 REQUIRED_COLS = [
     "Player", "Nation", "Pos", "Squad", "Age", "Born", "MP", "Starts",
@@ -99,6 +100,28 @@ def safe_filter_minutes(df: pd.DataFrame, min_90s: float) -> pd.DataFrame:
     out = out[out["90s"].notna()]
     out = out[out["90s"] >= min_90s]
     return out
+
+
+def filter_by_position(df: pd.DataFrame, pos_choice: str) -> pd.DataFrame:
+    if pos_choice == "All":
+        return df
+    tokens = [t.strip() for t in str(pos_choice).split(",") if t.strip()]
+
+    def matches(pos_value: str) -> bool:
+        pos_tokens = [p.strip() for p in str(pos_value).split(",") if p.strip()]
+        return any(t in pos_tokens for t in tokens)
+
+    return df[df["Pos"].apply(matches)]
+
+
+def unique_position_tokens(series: pd.Series) -> list[str]:
+    tokens: set[str] = set()
+    for val in series.dropna().astype(str):
+        for t in val.split(","):
+            t = t.strip()
+            if t:
+                tokens.add(t)
+    return sorted(tokens)
 
 
 def compute_clusters(df: pd.DataFrame, k: int, feature_cols: list[str], random_state: int = 42):
@@ -193,17 +216,65 @@ def high_impact_low_starts(work: pd.DataFrame, squad: str, min_90s: float) -> pd
 # -----------------------------
 # UI
 # -----------------------------
-st.title("CoachLens MVP ⚽")
-st.caption("Role clustering + selection optimizer + talent finder (FBref-style player season stats).")
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;600;700&display=swap');
 
-with st.sidebar:
-    st.header("Data")
-    st.caption(f"Using local data file: {DATA_PATH.name}")
-    st.divider()
-    min_90s = st.slider("Minimum 90s played filter", min_value=0.0, max_value=20.0, value=6.0, step=0.5)
-    st.divider()
-    st.header("Clustering")
-    k = st.slider("Number of clusters (k)", min_value=3, max_value=8, value=5, step=1)
+    .stApp {
+        background: linear-gradient(135deg, #3A0720 0%, #4B0B2B 55%, #5A0E34 100%);
+        color: #F6F2F5;
+    }
+
+    h1, h2, h3, h4, h5 {
+        font-family: 'Bebas Neue', sans-serif !important;
+        letter-spacing: 0.5px;
+    }
+
+    p, div, span, label, .stTextInput, .stSelectbox, .stSlider {
+        font-family: 'Montserrat', sans-serif !important;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        font-family: 'Bebas Neue', sans-serif !important;
+        font-size: 18px;
+        letter-spacing: 0.6px;
+        color: #F6F2F5;
+    }
+
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        color: #F2C14E;
+    }
+
+    .title-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 6px;
+    }
+
+    .title-row h1 {
+        margin: 0;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <div class="title-row">
+        <span style="font-size: 34px; line-height: 1;">⚽️</span>
+        <h1>CoachLens</h1>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.caption("A coach's assistant for player analysis and team optimization.")
+
+st.caption(f"Using data file: {DATA_PATH.name}")
+min_90s = 6.0
+k = 5
 
 if not DATA_PATH.exists():
     st.error(f"Local CSV not found: {DATA_PATH.name}")
@@ -233,8 +304,7 @@ df = add_engineered_features(df)
 # Apply baseline filter
 df_f = safe_filter_minutes(df, min_90s=min_90s)
 
-tab1, tab2, tab3 = st.tabs(["🧩 Role Explorer", "🧠 Selection Optimizer", "🔍 Talent Finder"])
-
+tab1, tab2, tab3, tab4 = st.tabs(["Role Explorer", "Selection Optimizer", "Talent Finder", "Recommender"])
 # -----------------------------
 # Tab 1: Role Clustering
 # -----------------------------
@@ -252,46 +322,41 @@ with tab1:
     # Extra filters
     colA, colB, colC = st.columns(3)
     with colA:
-        pos_choice = st.selectbox("Filter by position (optional)", ["All"] + sorted(df_f["Pos"].dropna().astype(str).unique().tolist()))
+        pos_choice = st.selectbox("Filter by position", ["All"] + unique_position_tokens(df_f["Pos"]))
     with colB:
-        squad_choice = st.selectbox("Filter by squad (optional)", ["All"] + sorted(df_f["Squad"].dropna().astype(str).unique().tolist()))
+        squad_choice = st.selectbox("Filter by squad", ["All"] + sorted(df_f["Squad"].dropna().astype(str).unique().tolist()))
     with colC:
-        show_labels = st.checkbox("Show player labels on plot (can be noisy)", value=False)
+        st.markdown("&nbsp;", unsafe_allow_html=True)
 
     df_role = df_f.copy()
-    if pos_choice != "All":
-        df_role = df_role[df_role["Pos"].astype(str) == pos_choice]
+    df_role = filter_by_position(df_role, pos_choice)
     if squad_choice != "All":
         df_role = df_role[df_role["Squad"].astype(str) == squad_choice]
 
     if len(df_role) < k + 5:
-        st.warning("Not enough players after filtering to cluster. Reduce filters or reduce k.")
+        st.warning("Not enough players after filtering to cluster. Reduce filters.")
         st.stop()
 
     clustered, cluster_means = compute_clusters(df_role, k=k, feature_cols=cluster_features)
 
     left, right = st.columns([2, 1])
+    cluster_order = sorted(clustered["role_cluster"].unique().tolist())
+    clustered["role_cluster_str"] = clustered["role_cluster"].astype(int).astype(str)
 
     with left:
         fig = px.scatter(
             clustered,
             x="pca_x",
             y="pca_y",
-            color=clustered["role_cluster"].astype(str),
+            color="role_cluster_str",
             hover_data=["Player", "Squad", "Pos", "90s"],
-            title="PCA view of player roles (clusters)",
+            title="PCA view of player roles",
+            category_orders={"role_cluster_str": [str(c) for c in cluster_order]},
         )
-        if show_labels:
-            fig.update_traces(text=clustered["Player"], textposition="top center")
         st.plotly_chart(fig, use_container_width=True)
 
-    with right:
-        st.markdown("### Cluster Profiles (average features)")
-        pretty_means = cluster_means.copy()
-        pretty_means["role_cluster"] = pretty_means["role_cluster"].astype(int)
-        st.dataframe(pretty_means.sort_values("role_cluster"), use_container_width=True, height=380)
-
-        chosen_cluster = st.selectbox("Inspect a cluster", sorted(clustered["role_cluster"].unique().tolist()))
+        st.markdown("### Inspect a cluster")
+        chosen_cluster = st.selectbox("Cluster", cluster_order)
         cluster_players = clustered[clustered["role_cluster"] == chosen_cluster].copy()
         cluster_players = cluster_players.sort_values("Non-penalty xG+xAG per 90", ascending=False)
 
@@ -304,8 +369,14 @@ with tab1:
             "cards_p90",
         ]
         cols_show = [c for c in cols_show if c in cluster_players.columns]
-        st.markdown("### Players in selected cluster")
-        st.dataframe(cluster_players[cols_show].head(25), use_container_width=True)
+        st.dataframe(cluster_players[cols_show].head(25), use_container_width=True, hide_index=True)
+
+    with right:
+        st.markdown("### Cluster Profiles Average")
+        pretty_means = cluster_means.copy()
+        pretty_means["role_cluster"] = pretty_means["role_cluster"].astype(int)
+        pretty_means = pretty_means.sort_values("role_cluster").set_index("role_cluster")
+        st.dataframe(pretty_means, use_container_width=True, height=380)
 
 # -----------------------------
 # Tab 2: Selection Optimizer
@@ -314,16 +385,18 @@ with tab2:
     st.subheader("Selection Optimizer (Impact-based squad suggestions)")
 
     work = compute_impact(df_f)
+    # Focus selection optimizer on attacking/midfield roles
+    work = work[~work["Pos"].astype(str).str.contains("DF|GK", na=False)]
 
     squad = st.selectbox("Select a squad", sorted(work["Squad"].dropna().astype(str).unique().tolist()))
-    pos_group = st.selectbox("Optional: focus on a position label substring", ["All", "FW", "MF", "DF", "GK"])
+    pos_group = st.selectbox("Focus on a position", ["All", "FW", "MF", "DF", "GK"])
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("### Suggested XI (top by impact)")
+        st.markdown("### Suggested XI (high impact)")
         xi = suggested_xi(work, squad=squad, pos_filter=None if pos_group == "All" else pos_group, n=11)
-        st.dataframe(xi, use_container_width=True, height=420)
+        st.dataframe(xi, use_container_width=True, height=420, hide_index=True)
 
         fig = px.bar(
             xi.sort_values("impact", ascending=True),
@@ -335,12 +408,12 @@ with tab2:
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        st.markdown("### Rotation Opportunities (high impact, low starts)")
+        st.markdown("### Underused Players (high impact, low starts)")
         rot = high_impact_low_starts(work, squad=squad, min_90s=min_90s)
         if len(rot) == 0:
             st.info("No strong mismatches found with current thresholds. Try lowering min 90s or using All positions.")
         else:
-            st.dataframe(rot, use_container_width=True, height=420)
+            st.dataframe(rot, use_container_width=True, height=420, hide_index=True)
 
         st.markdown("### Impact vs Starts (squad view)")
         squad_df = work[work["Squad"] == squad].copy()
@@ -353,8 +426,9 @@ with tab2:
         )
         st.plotly_chart(fig2, use_container_width=True)
 
+
     st.caption(
-        "Impact score (explainable): "
+        "Impact score: "
         "0.50*(Non-pen npxG+xAG/90) + 0.30*(xG+xAG/90) + 0.20*(progression/90) - 0.10*(cards/90)."
     )
 
@@ -362,7 +436,7 @@ with tab2:
 # Tab 3: Talent Finder
 # -----------------------------
 with tab3:
-    st.subheader("Talent Finder (league-wide leaderboard)")
+    st.subheader("Talent Finder (league-wide leaders)")
 
     # Define metric groups
     metric_groups = {
@@ -409,8 +483,7 @@ with tab3:
     top_n = st.slider("Show top N", min_value=5, max_value=50, value=20, step=5)
 
     view = df_f.copy()
-    if pos_f != "All":
-        view = view[view["Pos"].astype(str) == pos_f]
+    view = filter_by_position(view, pos_f)
     if squad_f != "All":
         view = view[view["Squad"].astype(str) == squad_f]
 
@@ -422,7 +495,7 @@ with tab3:
     cols = [c for c in cols if c in leaderboard.columns]
 
     st.markdown("### Leaderboard")
-    st.dataframe(leaderboard[cols].head(top_n), use_container_width=True)
+    st.dataframe(leaderboard[cols].head(top_n), use_container_width=True, hide_index=True)
 
     fig = px.bar(
         leaderboard.head(top_n).sort_values(metric, ascending=True),
@@ -431,85 +504,99 @@ with tab3:
         orientation="h",
         title=f"Top {top_n}: {metric}",
     )
+    fig.update_traces(marker_color=TALENT_PALETTE[3])
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("### Distribution")
     fig2 = px.histogram(leaderboard, x=metric, nbins=40, title=f"Distribution of {metric}")
+    fig2.update_traces(marker_color=TALENT_PALETTE[4])
     st.plotly_chart(fig2, use_container_width=True)
 
-# Recommend similar players
-df = pd.read_csv("fbref_PL_2024-25.csv")
-
-@st.cache_resource
-def setup_vector_system(df):
-    df_vectors = build_player_vectors(df)
-    initialize_vector_db(df_vectors)
-    return df_vectors
-
-df_vectors = setup_vector_system(df)
-
-df_vectors = build_player_vectors(df)
-initialize_vector_db(df_vectors)
-
-st.header("Role Similarity Engine")
-
-selected_player = st.selectbox(
-    "Select Player",
-    df_vectors["Player"].unique()
-)
-
-exclude_same_team = st.checkbox("Exclude same squad", value=True)
-top_k = st.slider("Number of similar players", 5, 20, 10)
-
-if selected_player:
-    results = find_similar_players(
-        df_vectors,
-        selected_player,
-        top_k,
-        exclude_same_team
+    st.markdown("### Metric by Position")
+    box_df = view.dropna(subset=[metric]).copy()
+    fig5 = px.box(
+        box_df,
+        x="Pos",
+        y=metric,
+        title=f"{metric} distribution by position",
     )
-    st.dataframe(results)
+    fig5.update_traces(marker_color=TALENT_PALETTE[1])
+    st.plotly_chart(fig5, use_container_width=True)
 
-st.header("Transfer Recommender")
+    st.markdown("### Squad Averages")
+    squad_avg = view.dropna(subset=[metric]).groupby("Squad", as_index=False)[metric].mean().sort_values(metric, ascending=False)
+    fig6 = px.bar(
+        squad_avg,
+        x=metric,
+        y="Squad",
+        orientation="h",
+        title=f"Average {metric} by squad",
+    )
+    fig6.update_traces(marker_color=TALENT_PALETTE[2])
+    st.plotly_chart(fig6, use_container_width=True)
+    
+with tab4:
+    st.subheader("Recommender Engine")
+    st.caption("Role similarity + transfer target suggestions based on vector similarity.")
 
-selected_player_transfer = st.selectbox(
-    "Select Player to Replace",
-    df_vectors["Player"].unique(),
-    key="transfer"
-)
+    @st.cache_resource
+    def setup_vector_system(df_in: pd.DataFrame) -> pd.DataFrame:
+        df_vectors_local = build_player_vectors(df_in)
+        initialize_vector_db(df_vectors_local)
+        return df_vectors_local
 
-max_age = st.slider("Maximum Age Target", 18, 35, 28)
+    # Use the already-prepared dataframe (minutes filtered, engineered features, etc.)
+    df_vectors = setup_vector_system(df_f)
 
-preserve_identity = st.checkbox(
-    "Preserve Tactical Identity",
-    value=False
-)
-
-similarity_threshold = None
-
-if preserve_identity:
-    similarity_threshold = st.slider(
-        "Minimum Similarity Threshold",
-        0.5,
-        0.95,
-        0.75,
-        step=0.01
+    st.markdown("### Role Similarity Engine")
+    selected_player = st.selectbox(
+        "Select Player",
+        sorted(df_vectors["Player"].dropna().unique().tolist()),
+        key="sim_player"
     )
 
-top_k_transfer = st.slider("Number of Recommendations", 5, 20, 10)
+    exclude_same_team = st.checkbox("Exclude same squad", value=True, key="sim_exclude_team")
+    top_k = st.slider("Number of similar players", 5, 20, 10, key="sim_topk")
 
-if selected_player_transfer:
+    if selected_player:
+        results = find_similar_players(
+            df_vectors,
+            selected_player,
+            top_k,
+            exclude_same_team
+        )
+        st.dataframe(results, use_container_width=True, hide_index=True)
 
-    transfer_results = recommend_transfer_targets(
-    df_vectors,
-    selected_player_transfer,
-    max_age,
-    top_k_transfer,
-    similarity_threshold
+    st.divider()
+
+    st.markdown("### Transfer Recommender")
+    selected_player_transfer = st.selectbox(
+        "Select Player to Replace",
+        sorted(df_vectors["Player"].dropna().unique().tolist()),
+        key="transfer_player"
     )
 
-    st.subheader("Recommended Transfer Targets")
-    st.dataframe(transfer_results)
+    max_age = st.slider("Maximum Age Target", 18, 35, 28, key="transfer_max_age")
 
-# Footer
-st.caption("MVP note: This uses season aggregates (not match-by-match), so it’s a decision-support dashboard, not a tactics simulator.")
+    preserve_identity = st.checkbox("Preserve Tactical Identity", value=False, key="transfer_preserve")
+    similarity_threshold = None
+    if preserve_identity:
+        similarity_threshold = st.slider(
+            "Minimum Similarity Threshold",
+            0.5, 0.95, 0.75, step=0.01,
+            key="transfer_thresh"
+        )
+
+    top_k_transfer = st.slider("Number of Recommendations", 5, 20, 10, key="transfer_topk")
+
+    if selected_player_transfer:
+        transfer_results = recommend_transfer_targets(
+            df_vectors,
+            selected_player_transfer,
+            max_age,
+            top_k_transfer,
+            similarity_threshold
+        )
+        st.subheader("Recommended Transfer Targets")
+        st.dataframe(transfer_results, use_container_width=True, hide_index=True)
+  
