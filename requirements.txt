@@ -1,4 +1,6 @@
+actiancortex @ file:///home/abbasidaniyal/work/hacklytics/coachable/actiancortex-0.1.0b1-py3-none-any.whl
 altair==6.0.0
+annotated-types==0.7.0
 asttokens==3.0.1
 attrs==25.4.0
 beautifulsoup4==4.13.4
@@ -26,6 +28,8 @@ fonttools==4.61.1
 gitdb==4.0.12
 gitpython==3.1.46
 greenlet==3.3.2
+grpcio==1.78.1
+grpcio-tools==1.78.1
 h11==0.16.0
 html5lib==1.1
 idna==3.10
@@ -75,6 +79,8 @@ psutil==7.2.2
 ptyprocess==0.7.0
 pure-eval==0.2.3
 pyarrow==23.0.1
+pydantic==2.12.5
+pydantic-core==2.41.5
 pydeck==0.9.1
 pyee==13.0.1
 pygments==2.19.2
@@ -103,6 +109,7 @@ scipy==1.17.0
 seaborn==0.13.2
 selenium==4.32.0
 seleniumbase==4.38.3
+sentry-sdk==2.53.0
 setuptools==82.0.0
 six==1.17.0
 smmap==5.0.2
@@ -122,6 +129,7 @@ traitlets==5.14.3
 trio==0.30.0
 trio-websocket==0.12.2
 typing-extensions==4.15.0
+typing-inspection==0.4.2
 tzdata==2025.3
 unidecode==1.4.0
 urllib3==1.26.20
